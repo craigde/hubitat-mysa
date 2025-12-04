@@ -206,6 +206,10 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
 
+### 2.3.0
+- Fixed: Temperature and setpoint now display as whole integers (no decimals) for cleaner dashboard display
+- Fixed: MQTT connection now auto-starts when devices are first created (no manual connect needed)
+
 ### 2.2.0
 - Updated namespace to `craigde`
 - Added PowerMeter capability for devices with current sensors
