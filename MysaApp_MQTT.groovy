@@ -1,6 +1,6 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.2.0
+ * Version: 2.3.0
  * Author: Craig Dewar
  *
  * Handles:
@@ -18,7 +18,7 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.2.0"
+@Field static final String APP_VERSION = "2.3.0"
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((
@@ -596,6 +596,8 @@ def createAllDevices() {
         if (child && firstDevice) {
             logInfo "Setting ${child.label} as MQTT master"
             child.updateDataValue("mqttMaster", "true")
+            // Trigger initialize to start MQTT connection
+            child.initialize()
             firstDevice = false
         }
     }
@@ -701,15 +703,15 @@ def updateChildFromStream(child, Map payload) {
     def tempC = payload.MainTemp ?: payload.ComboTemp
     if (tempC != null) {
         def temp = useFahrenheit ? celsiusToFahrenheit(tempC) : tempC
-        child.sendEvent(name: "temperature", value: round(temp, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "temperature", value: Math.round(temp), unit: useFahrenheit ? "°F" : "°C")
     }
     
     // SetPoint
     if (payload.SetPoint != null) {
         def setpointC = payload.SetPoint
         def setpoint = useFahrenheit ? celsiusToFahrenheit(setpointC) : setpointC
-        child.sendEvent(name: "heatingSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
-        child.sendEvent(name: "thermostatSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "heatingSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "thermostatSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     }
     
     // Humidity
@@ -738,15 +740,15 @@ def updateChildFromBody(child, Map body) {
     if (body.ambTemp != null) {
         def tempC = body.ambTemp
         def temp = useFahrenheit ? celsiusToFahrenheit(tempC) : tempC
-        child.sendEvent(name: "temperature", value: round(temp, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "temperature", value: Math.round(temp), unit: useFahrenheit ? "°F" : "°C")
     }
     
     // stpt = setpoint
     if (body.stpt != null) {
         def setpointC = body.stpt
         def setpoint = useFahrenheit ? celsiusToFahrenheit(setpointC) : setpointC
-        child.sendEvent(name: "heatingSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
-        child.sendEvent(name: "thermostatSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "heatingSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "thermostatSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     }
     
     // hum = humidity
@@ -774,8 +776,8 @@ def updateChildFromState(child, Map stateData) {
     if (stateData.sp != null) {
         def setpointC = stateData.sp
         def setpoint = useFahrenheit ? celsiusToFahrenheit(setpointC) : setpointC
-        child.sendEvent(name: "heatingSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
-        child.sendEvent(name: "thermostatSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "heatingSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "thermostatSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     }
     
     // md = mode (1 = off, 3 = heat)
@@ -793,8 +795,8 @@ def updateChildSetpoint(child, BigDecimal setpointC) {
     def setpoint = useFahrenheit ? celsiusToFahrenheit(setpointC) : setpointC
     
     child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
-    child.sendEvent(name: "heatingSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
-    child.sendEvent(name: "thermostatSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
+    child.sendEvent(name: "heatingSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
+    child.sendEvent(name: "thermostatSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     
     logDebug "Updated ${child.label} setpoint to ${setpoint}"
 }
@@ -850,14 +852,14 @@ def updateChildDevice(child, Map stateData) {
     if (stateData.CorrectedTemp?.v != null) {
         def tempC = stateData.CorrectedTemp.v
         def temp = useFahrenheit ? celsiusToFahrenheit(tempC) : tempC
-        child.sendEvent(name: "temperature", value: round(temp, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "temperature", value: Math.round(temp), unit: useFahrenheit ? "°F" : "°C")
     }
     
     if (stateData.SetPoint?.v != null) {
         def setpointC = stateData.SetPoint.v
         def setpoint = useFahrenheit ? celsiusToFahrenheit(setpointC) : setpointC
-        child.sendEvent(name: "heatingSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
-        child.sendEvent(name: "thermostatSetpoint", value: round(setpoint, 1), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "heatingSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
+        child.sendEvent(name: "thermostatSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     }
     
     if (stateData.Humidity?.v != null) {
