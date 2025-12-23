@@ -2,6 +2,10 @@
  * Mysa Thermostat MQTT Driver
  * Version: 2.2.0
  * Author: Craig Dewar
+ * Repository: https://github.com/craigdewar/hubitat-mysa
+ *
+ * Description:
+ *  Device driver for Mysa smart thermostats with real-time MQTT control.
  *
  * Features:
  *  - Standard Hubitat Thermostat capability
@@ -9,6 +13,40 @@
  *  - Temperature/mode control via MQTT
  *  - Model-specific body.type for V1/V2 devices
  *  - Power monitoring (for devices with current sensor)
+ *
+ * Supported Devices:
+ *  - BB-V1-1   : Mysa Baseboard V1 (body.type: 1)
+ *  - BB-V2-0   : Mysa Baseboard V2 (body.type: 4)
+ *  - BB-V2-0-L : Mysa Baseboard V2 Lite (body.type: 5)
+ *  - INF-V1-0  : Mysa In-Floor V1 (body.type: 1)
+ *  - AC-V1-*   : Mysa for AC (body.type: 2)
+ *
+ * Changelog:
+ *  v2.2.0 (2024-12-16)
+ *   - Updated namespace to 'craigde' and author to 'Craig Dewar'
+ *   - Added PowerMeter capability for devices with current sensors
+ *   - Added dutyCycle attribute (0.0-1.0 heating duty cycle)
+ *   - Added model attribute for UI visibility
+ *
+ *  v2.1.0 (2024-12-16)
+ *   - Fixed body.type for V2 devices (type 4 for BB-V2-0, type 5 for BB-V2-0-L)
+ *   - Fixed src.ref to use email instead of identity ID
+ *   - Added model detection for correct command format
+ *   - Commands now work correctly for all device models
+ *
+ *  v2.0.0 (2024-12-16)
+ *   - Complete rewrite with MQTT over WebSocket support
+ *   - Real-time bidirectional communication
+ *   - Correct MQTT topic structure (/v1/dev/{deviceId}/in and /out)
+ *   - Full MQTT protocol implementation (CONNECT, SUBSCRIBE, PUBLISH, PINGREQ)
+ *   - Proper QoS 1 message handling with PUBACK
+ *
+ *  v1.x (2024-12)
+ *   - Initial REST API only version (read-only, no control)
+ *
+ * Credits:
+ *  - dlenski/mysotherm - MQTT message format documentation
+ *  - bourquep/mysa-js-sdk - Command structure and model-specific types
  */
 
 import groovy.json.JsonSlurper
