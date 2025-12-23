@@ -1,14 +1,54 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.3.0
+ * Version: 2.4.0
  * Author: Craig Dewar
+ * Repository: https://github.com/craigdewar/hubitat-mysa
  *
- * Handles:
+ * Description:
+ *  Integrates Mysa smart thermostats with Hubitat Elevation via real-time MQTT.
+ *
+ * Features:
  *  - AWS Cognito SRP authentication
  *  - AWS Cognito Identity credentials for MQTT
  *  - SigV4 presigned WebSocket URL for AWS IoT
  *  - Device discovery and child device creation
  *  - Real-time MQTT updates via WebSocket
+ *
+ * Changelog:
+ *  v2.4.0 (2024-12-17)
+ *   - Added proper token refresh using REFRESH_TOKEN_AUTH flow
+ *   - Improved error handling to capture actual AWS error types
+ *   - Token refresh is now tried before full SRP re-authentication
+ *
+ *  v2.3.0 (2024-12-17)
+ *   - Temperature and setpoint now display as whole integers (no decimals)
+ *   - MQTT connection auto-starts when devices are first created
+ *
+ *  v2.2.0 (2024-12-16)
+ *   - Updated namespace to 'craigde' and author to 'Craig Dewar'
+ *   - Added PowerMeter capability for devices with current sensors
+ *   - Added dutyCycle and model attributes
+ *   - Fixed child device namespace to match driver
+ *
+ *  v2.1.0 (2024-12-16)
+ *   - Fixed body.type for V2 devices (type 4 for BB-V2-0, type 5 for BB-V2-0-L)
+ *   - Fixed src.ref to use email instead of identity ID
+ *   - Commands now work correctly for all device models
+ *
+ *  v2.0.0 (2024-12-16)
+ *   - Complete rewrite with MQTT support
+ *   - Real-time updates via WebSocket to AWS IoT
+ *   - Correct MQTT topic structure (/v1/dev/{deviceId}/in and /out)
+ *   - Model-specific command formats based on bourquep's mysa-js-sdk
+ *   - Removed non-functional REST API control
+ *
+ *  v1.x (2024-12)
+ *   - Initial REST API only version (polling only, no control)
+ *
+ * Credits:
+ *  - dlenski/mysotherm - MQTT message format documentation
+ *  - bourquep/mysa-js-sdk - Command structure and model-specific types
+ *  - AWS Amplify - SRP authentication reference
  */
 
 import groovy.transform.Field
@@ -18,7 +58,7 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.3.0"
+@Field static final String APP_VERSION = "2.4.0"
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((
@@ -259,13 +299,33 @@ def testAuthentication() {
 def ensureAuthenticated() {
     // Check if token is expired or will expire soon (within 5 minutes)
     if (!state.idToken || !state.tokenExpiry || (state.tokenExpiry - now()) < 300000) {
-        logDebug "Token expired or missing, re-authenticating..."
+        logDebug "Token expired or missing, attempting refresh..."
+        
+        // Try token refresh first (if we have a refresh token)
+        if (state.refreshToken) {
+            try {
+                def tokens = refreshTokens(state.refreshToken)
+                if (tokens) {
+                    state.idToken = tokens.idToken
+                    state.accessToken = tokens.accessToken
+                    // Refresh token stays the same (Cognito doesn't always return a new one)
+                    state.tokenExpiry = now() + ((tokens.expiresInSec ?: 3600) * 1000)
+                    logInfo "Token refresh successful"
+                    return true
+                }
+            } catch (e) {
+                logWarn "Token refresh failed: ${e.message}, trying full re-authentication..."
+            }
+        }
+        
+        // Fall back to full SRP authentication
         try {
             def tokens = srpLogin(region, cognitoUserPoolId, cognitoClientId, username, password)
             state.idToken = tokens.idToken
             state.accessToken = tokens.accessToken
             state.refreshToken = tokens.refreshToken
             state.tokenExpiry = now() + ((tokens.expiresInSec ?: 3600) * 1000)
+            logInfo "Full re-authentication successful"
             return true
         } catch (e) {
             logWarn "Re-authentication failed: ${e}"
@@ -273,6 +333,38 @@ def ensureAuthenticated() {
         }
     }
     return true
+}
+
+/**
+ * Refresh tokens using the refresh token (more reliable than full re-auth)
+ */
+private Map refreshTokens(String refreshToken) {
+    logDebug "Attempting token refresh..."
+    
+    def endpoint = "https://cognito-idp.${region}.amazonaws.com/"
+    
+    def resp = awsJson(endpoint, "AWSCognitoIdentityProviderService.InitiateAuth", [
+        AuthFlow: "REFRESH_TOKEN_AUTH",
+        ClientId: cognitoClientId,
+        AuthParameters: [
+            REFRESH_TOKEN: refreshToken
+        ]
+    ])
+    
+    if (resp.status != 200) {
+        throw new Exception("Token refresh failed: ${resp.err ?: resp.text}")
+    }
+    
+    def ar = resp.json?.AuthenticationResult
+    if (ar?.IdToken) {
+        return [
+            idToken: ar.IdToken,
+            accessToken: ar.AccessToken,
+            expiresInSec: (ar.ExpiresIn ?: 3600)
+        ]
+    }
+    
+    throw new Exception("Token refresh failed: no tokens in response")
 }
 
 /* =========================
@@ -1092,6 +1184,13 @@ private Map awsJson(String url, String target, Map body) {
                 try { out.json = new groovy.json.JsonSlurper().parseText(raw.trim()) as Map } catch (ignored) {}
             }
         }
+    } catch (groovyx.net.http.HttpResponseException hre) {
+        // Try to get error details from AWS response
+        def errorBody = hre.response?.data
+        def errorType = errorBody?.__type ?: "Unknown"
+        def errorMsg = errorBody?.message ?: hre.message
+        out.err = "${errorType}: ${errorMsg}"
+        logWarn "AWS call error ${target}: ${errorType} - ${errorMsg}"
     } catch (e) {
         out.err = e?.toString()
         logWarn "AWS call error ${target}: ${e?.message}"
