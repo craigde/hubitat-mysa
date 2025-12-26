@@ -1,6 +1,6 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.4.0
+ * Version: 2.4.1
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -15,6 +15,9 @@
  *  - Real-time MQTT updates via WebSocket
  *
  * Changelog:
+ *  v2.4.1 (2024-12-26)
+ *   - Fixed token refresh response parsing (was failing with null error)
+ *
  *  v2.4.0 (2024-12-17)
  *   - Added proper token refresh using REFRESH_TOKEN_AUTH flow
  *   - Improved error handling to capture actual AWS error types
@@ -58,7 +61,7 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.4.0"
+@Field static final String APP_VERSION = "2.4.1"
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((
@@ -351,12 +354,19 @@ private Map refreshTokens(String refreshToken) {
         ]
     ])
     
-    if (resp.status != 200) {
-        throw new Exception("Token refresh failed: ${resp.err ?: resp.text}")
+    // awsJson returns:
+    // - On success: the JSON body directly (a Map with AuthenticationResult)
+    // - On failure: a Map with status:-1 and err set
+    
+    // Check if we got an error response (has 'err' or 'status' keys)
+    if (resp?.err != null || resp?.status != null) {
+        throw new Exception("Token refresh failed: ${resp.err ?: 'status ' + resp.status}")
     }
     
-    def ar = resp.json?.AuthenticationResult
+    // On success, resp is the JSON body, look for AuthenticationResult
+    def ar = resp?.AuthenticationResult
     if (ar?.IdToken) {
+        logDebug "Token refresh returned new tokens"
         return [
             idToken: ar.IdToken,
             accessToken: ar.AccessToken,
@@ -364,7 +374,7 @@ private Map refreshTokens(String refreshToken) {
         ]
     }
     
-    throw new Exception("Token refresh failed: no tokens in response")
+    throw new Exception("Token refresh failed: no tokens in response - ${resp}")
 }
 
 /* =========================
