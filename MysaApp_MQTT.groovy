@@ -1,6 +1,6 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.4.1
+ * Version: 2.5.0
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -15,6 +15,12 @@
  *  - Real-time MQTT updates via WebSocket
  *
  * Changelog:
+ *  v2.5.0 (2026-10-28)
+ *   - Added floorTemperature, trackedSensor and lineVoltage from INF-V1 status messages
+ *   - dutyCycle now read from 'dutyCycle' (newer firmware) as well as 'dtyCycle'
+ *   - thermostatOperatingState uses heatStat when reported, else duty cycle
+ *   - In-Floor changes contributed by bcg62
+ *
  *  v2.4.1 (2024-12-26)
  *   - Fixed token refresh response parsing (was failing with null error)
  *
@@ -61,7 +67,7 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.4.1"
+@Field static final String APP_VERSION = "2.5.0"
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((

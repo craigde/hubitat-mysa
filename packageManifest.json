@@ -1,11 +1,11 @@
 {
   "packageName": "Mysa Thermostat Integration",
   "author": "Craig Dewar",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "minimumHEVersion": "2.3.0",
-  "dateReleased": "2024-12-26",
+  "dateReleased": "2026-10-28",
   "licenseFile": "https://raw.githubusercontent.com/craigde/hubitat-mysa/main/LICENSE",
-  "releaseNotes": "v2.4.1 - Fixed token refresh response parsing\nv2.4.0 - Added proper token refresh support\nv2.3.0 - Integer temps, auto MQTT connect\nv2.2.0 - Added PowerMeter, dutyCycle attributes\nv2.1.0 - Fixed V2 device commands\nv2.0.0 - Complete MQTT rewrite",
+  "releaseNotes": "v2.5.0 - In-Floor (INF-V1) command fix, floorTemperature/trackedSensor/lineVoltage attributes (thanks bgermain1689)\nv2.4.1 - Fixed token refresh response parsing\nv2.4.0 - Added proper token refresh support\nv2.3.0 - Integer temps, auto MQTT connect\nv2.2.0 - Added PowerMeter, dutyCycle attributes\nv2.1.0 - Fixed V2 device commands\nv2.0.0 - Complete MQTT rewrite",
   "documentationLink": "https://github.com/craigde/hubitat-mysa/blob/main/README.md",
   "communityLink": "https://community.hubitat.com/",
   "apps": [
@@ -17,7 +17,7 @@
       "required": true,
       "oauth": false,
       "primary": true,
-      "version": "2.4.1"
+      "version": "2.5.0"
     }
   ],
   "drivers": [
@@ -27,7 +27,7 @@
       "namespace": "craigde",
       "location": "https://raw.githubusercontent.com/craigde/hubitat-mysa/main/MysaThermostatDriver_MQTT.groovy",
       "required": true,
-      "version": "2.2.0"
+      "version": "2.3.0"
     }
   ]
 }

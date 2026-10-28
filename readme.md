@@ -18,7 +18,7 @@ A complete Hubitat Elevation integration for Mysa smart thermostats with real-ti
 | BB-V1-1 | Mysa Baseboard V1 | 1 | ✅ Yes |
 | BB-V2-0 | Mysa Baseboard V2 | 4 | ✅ Yes |
 | BB-V2-0-L | Mysa Baseboard V2 Lite | 5 | ❌ No |
-| INF-V1-0 | Mysa In-Floor V1 | 1 | ✅ Yes |
+| INF-V1-0 | Mysa In-Floor V1 | 3 | ✅ Yes |
 | AC-V1-* | Mysa for AC | 2 | Varies |
 
 ## Requirements
@@ -101,6 +101,9 @@ The driver exposes standard Hubitat capabilities:
 |-----------|-------------|
 | model | Device model (BB-V1-1, BB-V2-0, etc.) |
 | dutyCycle | Heating duty cycle (0.0 to 1.0) |
+| floorTemperature | Floor probe temperature (In-Floor models) |
+| trackedSensor | Sensor the thermostat regulates on, as the raw number the device reports |
+| lineVoltage | Line voltage reported by the device |
 | mqttStatus | MQTT connection status |
 | lastUpdate | Timestamp of last update |
 
@@ -205,6 +208,22 @@ This integration is not affiliated with, endorsed by, or connected to Mysa Smart
 MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
+
+### 2.5.0
+In-Floor (INF-V1) support, contributed by bcg62.
+
+- Fixed: Commands to INF-V1 devices now use body type 3 (the device ignored type 1)
+- Added floorTemperature, trackedSensor and lineVoltage attributes
+- dutyCycle is now read from newer firmware's `dutyCycle` field as well as `dtyCycle`
+- Operating state uses the device's `heatStat` when reported, falling back to duty cycle
+
+### 2.4.1
+- Fixed token refresh response parsing (was failing with null error)
+
+### 2.4.0
+- Added proper token refresh using REFRESH_TOKEN_AUTH flow
+- Improved error handling to capture actual AWS error types
+- Token refresh is now tried before full SRP re-authentication
 
 ### 2.3.0
 - Fixed: Temperature and setpoint now display as whole integers (no decimals) for cleaner dashboard display
