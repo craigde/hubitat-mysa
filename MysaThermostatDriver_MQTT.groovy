@@ -73,6 +73,9 @@ metadata {
         attribute "mqttStatus", "string"
         attribute "dutyCycle", "number"  // 0.0-1.0 heating duty cycle
         attribute "model", "string"  // Device model (BB-V1-1, BB-V2-0, etc.)
+        attribute "floorTemperature", "number"  // Floor probe temperature (INF models)
+        attribute "trackedSensor", "number"  // Sensor the thermostat regulates on
+        attribute "lineVoltage", "number"  // Line voltage reported by the device
         
         command "heat"
         command "off"
@@ -641,7 +644,7 @@ def buildMysaCommand(String cmdType, value) {
             bodyType = 4  // V2 non-Lite
         }
     } else if (model.startsWith("INF-V1")) {
-        bodyType = 1  // Floor heater, assume V1 format
+        bodyType = 3  // Floor heater
     }
     
     logDebug "Model '${model}' -> body.type = ${bodyType}"

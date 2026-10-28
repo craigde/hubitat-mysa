@@ -858,14 +858,37 @@ def updateChildFromBody(child, Map body) {
         child.sendEvent(name: "humidity", value: body.hum.toInteger(), unit: "%")
     }
     
-    // dtyCycle = duty cycle (1.0 = heating, 0.0 = idle)
-    if (body.dtyCycle != null) {
-        def opState = (body.dtyCycle > 0) ? "heating" : "idle"
-        child.sendEvent(name: "thermostatOperatingState", value: opState)
-        child.sendEvent(name: "dutyCycle", value: round(body.dtyCycle, 2))
+    // flrSnsrTemp = floor probe temperature (INF models)
+    if (body.flrSnsrTemp != null) {
+        def floorC = body.flrSnsrTemp
+        def floorTemp = useFahrenheit ? celsiusToFahrenheit(floorC) : floorC
+        child.sendEvent(name: "floorTemperature", value: Math.round(floorTemp), unit: useFahrenheit ? "°F" : "°C")
     }
-    
-    logDebug "Updated ${child.label} from body: ambTemp=${body.ambTemp}, stpt=${body.stpt}"
+
+    // trackedSnsr = which sensor the thermostat regulates on
+    if (body.trackedSnsr != null) {
+        child.sendEvent(name: "trackedSensor", value: body.trackedSnsr)
+    }
+
+    // lineVtg = line voltage
+    if (body.lineVtg != null) {
+        child.sendEvent(name: "lineVoltage", value: body.lineVtg, unit: "V")
+    }
+
+    // dutyCycle (newer firmware) or dtyCycle (older) = heating duty cycle
+    def dutyCycle = (body.dutyCycle != null) ? body.dutyCycle : body.dtyCycle
+    if (dutyCycle != null) {
+        child.sendEvent(name: "dutyCycle", value: round(dutyCycle, 2))
+    }
+
+    // heatStat = heater relay status (0 = idle); prefer it over duty cycle for operating state
+    if (body.heatStat != null) {
+        child.sendEvent(name: "thermostatOperatingState", value: (body.heatStat > 0) ? "heating" : "idle")
+    } else if (dutyCycle != null) {
+        child.sendEvent(name: "thermostatOperatingState", value: (dutyCycle > 0) ? "heating" : "idle")
+    }
+
+    logDebug "Updated ${child.label} from body: ambTemp=${body.ambTemp}, flrSnsrTemp=${body.flrSnsrTemp}, stpt=${body.stpt}, heatStat=${body.heatStat}, dutyCycle=${dutyCycle}"
 }
 
 def updateChildFromState(child, Map stateData) {
