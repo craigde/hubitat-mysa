@@ -1,6 +1,6 @@
 /**
  * Mysa Thermostat MQTT Driver
- * Version: 2.2.0
+ * Version: 2.3.0
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -18,10 +18,15 @@
  *  - BB-V1-1   : Mysa Baseboard V1 (body.type: 1)
  *  - BB-V2-0   : Mysa Baseboard V2 (body.type: 4)
  *  - BB-V2-0-L : Mysa Baseboard V2 Lite (body.type: 5)
- *  - INF-V1-0  : Mysa In-Floor V1 (body.type: 1)
+ *  - INF-V1-0  : Mysa In-Floor V1 (body.type: 3)
  *  - AC-V1-*   : Mysa for AC (body.type: 2)
  *
  * Changelog:
+ *  v2.3.0 (2026-10-28)
+ *   - Fixed body.type for INF-V1 devices (type 3; the device ignored type 1 commands)
+ *   - Added floorTemperature, trackedSensor and lineVoltage attributes
+ *   - In-Floor changes contributed by bcg62
+ *
  *  v2.2.0 (2024-12-16)
  *   - Updated namespace to 'craigde' and author to 'Craig Dewar'
  *   - Added PowerMeter capability for devices with current sensors
@@ -53,7 +58,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-@Field static final String DRIVER_VERSION = "2.2.0"
+@Field static final String DRIVER_VERSION = "2.3.0"
 
 metadata {
     definition(name: "Mysa Thermostat MQTT", namespace: "craigde", author: "Craig Dewar") {
