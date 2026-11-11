@@ -1,6 +1,6 @@
 /**
  * Mysa Thermostat MQTT Driver
- * Version: 2.3.0
+ * Version: 2.3.1
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -22,6 +22,11 @@
  *  - AC-V1-*   : Mysa for AC (body.type: 2)
  *
  * Changelog:
+ *  v2.3.1 (2026-11-11)
+ *   - Fixed: commands from non-master devices are now routed through the MQTT
+ *     master (previously they hit a no-op REST fallback and were dropped)
+ *   - Fixed: src.ref on forwarded commands uses the master's login email
+ *
  *  v2.3.0 (2026-10-28)
  *   - Fixed body.type for INF-V1 devices (type 3; the device ignored type 1 commands)
  *   - Added floorTemperature, trackedSensor and lineVoltage attributes
@@ -58,7 +63,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-@Field static final String DRIVER_VERSION = "2.3.0"
+@Field static final String DRIVER_VERSION = "2.3.1"
 
 metadata {
     definition(name: "Mysa Thermostat MQTT", namespace: "craigde", author: "Craig Dewar") {
@@ -523,18 +528,17 @@ def setHeatingSetpoint(temperature) {
         return
     }
     
-    logDebug "state.mqttConnected = ${state.mqttConnected}"
-    
-    // Try MQTT first, fall back to REST
-    if (state.mqttConnected == true) {
-        logInfo "Sending setpoint via MQTT"
-        def command = buildMysaCommand("sp", temperature)
-        publishMqttCommand(deviceId, command)
-    } else {
+    // Only the MQTT master holds the connection; non-master devices route
+    // their commands through it (see publishMqttCommand).
+    if (isMqttMaster() && state.mqttConnected != true) {
         logInfo "MQTT not connected, falling back to parent (REST)"
-        // Fall back to REST API via parent
         parent?.childSetHeatingSetpoint(device.deviceNetworkId, temperature)
+        return
     }
+    
+    logInfo "Sending setpoint via MQTT"
+    def command = buildMysaCommand("sp", temperature)
+    publishMqttCommand(deviceId, command)
 }
 
 def setThermostatMode(mode) {
@@ -548,12 +552,17 @@ def setThermostatMode(mode) {
     
     def modeValue = (mode == "heat") ? 3 : 1
     
-    if (state.mqttConnected) {
-        def command = buildMysaCommand("md", modeValue)
-        publishMqttCommand(deviceId, command)
-    } else {
+    if (isMqttMaster() && state.mqttConnected != true) {
         parent?.childSetThermostatMode(device.deviceNetworkId, mode)
+        return
     }
+    
+    def command = buildMysaCommand("md", modeValue)
+    publishMqttCommand(deviceId, command)
+}
+
+private boolean isMqttMaster() {
+    return getDataValue("mqttMaster") == "true"
 }
 
 def heat() {
@@ -690,13 +699,28 @@ private BigDecimal fahrenheitToCelsius(value) {
 }
 
 def publishMqttCommand(String deviceId, Map command) {
-    if (getDataValue("mqttMaster") != "true") {
-        // Forward to master device
+    if (!isMqttMaster()) {
+        // Only the master holds the MQTT connection - forward to it
         def masterDevice = parent?.getChildDevices()?.find { it.getDataValue("mqttMaster") == "true" }
         if (masterDevice) {
+            logDebug "Forwarding command for ${deviceId} to MQTT master ${masterDevice.displayName}"
             masterDevice.publishMqttCommand(deviceId, command)
+        } else {
+            logWarn "No MQTT master device found, cannot send command"
         }
         return
+    }
+    
+    if (state.mqttConnected != true) {
+        logWarn "MQTT not connected, cannot send command for ${deviceId}"
+        return
+    }
+    
+    // Non-master devices don't have the user email in their state, so
+    // stamp src.ref here from the master's connection details.
+    def srcRef = state.userEmail ?: state.userId
+    if (srcRef && command?.src instanceof Map) {
+        command.src.ref = srcRef
     }
     
     // Correct topic format: /v1/dev/{deviceId}/in
