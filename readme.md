@@ -209,6 +209,9 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
 
+### 2.5.1 (driver 2.3.1)
+- Fixed: Commands (setpoint, mode) sent to devices other than the MQTT master were silently dropped; they are now routed through the master's connection
+
 ### 2.5.0
 In-Floor (INF-V1) support, contributed by bcg62.
 
