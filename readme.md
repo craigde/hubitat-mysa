@@ -71,7 +71,6 @@ A complete Hubitat Elevation integration for Mysa smart thermostats with real-ti
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Poll Interval | Backup polling frequency (MQTT provides real-time updates) | 15 minutes |
-| lastUpdate attribute interval | How often each thermostat's lastUpdate attribute may change; keeps the event history small | 15 minutes |
 | Enable MQTT | Enable real-time MQTT updates | On |
 | Debug Logging | Enable detailed logging for troubleshooting | Off |
 
@@ -106,7 +105,7 @@ The driver exposes standard Hubitat capabilities:
 | trackedSensor | Sensor the thermostat regulates on, as the raw number the device reports |
 | lineVoltage | Line voltage reported by the device |
 | mqttStatus | MQTT connection status |
-| lastUpdate | Time data was last received (changes at most once per "lastUpdate attribute interval", 15 minutes by default) |
+| lastUpdate | Time data was last received. Only updated while debug logging is on; otherwise see the app's main page |
 
 ## How It Works
 
@@ -214,7 +213,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 - Fixed: thermostatOperatingState only updated on the backup poll (every 15 minutes by default). Mysa devices only publish status reports while a client asks for them; the driver now requests them and renews the request every 4 minutes
 - V1 devices: operating state is derived from current draw in real-time status reports
 - Operating state switches to idle as soon as the mode changes to off
-- New "lastUpdate attribute interval" app setting (default 15 minutes). Real-time status reports arrive every few seconds, and each new lastUpdate timestamp is a new event
+- lastUpdate is no longer written as an event unless debug logging is on, since real-time status reports arrive every few seconds. The app's main page shows when each thermostat last sent data
 - Fixed: Clicking Initialize or Save Preferences on the master while connected caused the MQTT connection to drop and reconnect every 30 seconds
 
 ### 2.5.1 (driver 2.3.1)

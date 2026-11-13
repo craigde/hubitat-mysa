@@ -19,8 +19,8 @@
  *   - Operating state now updates in real time (driver requests status reports)
  *   - V1 devices: operating state derived from current draw in status reports
  *   - Operating state set to idle immediately when mode changes to off
- *   - New "lastUpdate attribute interval" setting (default 15 minutes) so
- *     real-time updates don't flood the event history
+ *   - lastUpdate is no longer written as an event (only with debug logging
+ *     on); the app page shows when each device last sent data instead
  *
  *  v2.5.0 (2026-10-28)
  *   - Added floorTemperature, trackedSensor and lineVoltage from INF-V1 status messages
@@ -75,8 +75,9 @@ import java.math.BigInteger
 import java.net.URLEncoder
 
 @Field static final String APP_VERSION = "2.6.0"
-// In-memory only (not state) to avoid a database write on every MQTT message
-@Field static java.util.concurrent.ConcurrentHashMap lastUpdateSentAt = new java.util.concurrent.ConcurrentHashMap()
+// When each device last sent data. In memory only (not state or events) to
+// avoid a database write on every MQTT message.
+@Field static java.util.concurrent.ConcurrentHashMap lastReceivedAt = new java.util.concurrent.ConcurrentHashMap()
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((
@@ -134,10 +135,6 @@ def mainPage() {
             input name: "pollInterval", type: "enum", title: "Poll Interval (backup)", 
                   options: ["1": "1 minute", "5": "5 minutes", "10": "10 minutes", "15": "15 minutes", "30": "30 minutes"], 
                   defaultValue: "15", required: true
-            input name: "lastUpdateInterval", type: "enum", title: "lastUpdate attribute interval",
-                  description: "How often each thermostat's lastUpdate attribute may change. Real-time updates arrive every few seconds; a longer interval keeps the event history small.",
-                  options: ["1": "1 minute", "5": "5 minutes", "15": "15 minutes", "30": "30 minutes"],
-                  defaultValue: "15", required: true
             input name: "useMqtt", type: "bool", title: "Enable MQTT for real-time updates", defaultValue: true
             input name: "debugLogging", type: "bool", title: "Enable Debug Logging", defaultValue: false
         }
@@ -146,6 +143,11 @@ def mainPage() {
                 paragraph "✓ Authenticated"
                 paragraph "Devices: ${getChildDevices()?.size() ?: 0}"
                 paragraph "Last poll: ${state.lastPoll ?: 'Never'}"
+                getChildDevices()?.sort { it.displayName }?.each { child ->
+                    Long t = lastReceivedAt[child.deviceNetworkId]
+                    def when = t ? new Date(t).format("yyyy-MM-dd HH:mm:ss", location.timeZone) : "Not since hub restart"
+                    paragraph "${child.displayName}: last data ${when}"
+                }
                 if (state.mqttConnected) {
                     paragraph "✓ MQTT Connected"
                 } else if (useMqtt) {
@@ -939,19 +941,15 @@ def updateChildFromState(child, Map stateData) {
     logDebug "Updated ${child.label} from state: sp=${stateData.sp}, md=${stateData.md}"
 }
 
-// Record when data was last received, at most once per lastUpdateInterval
-// per device. Each new timestamp is a new event, and real-time status
-// reports arrive every few seconds.
+// Record when data was last received. Real-time status reports arrive every
+// few seconds, so this is kept in memory and shown on the app page instead of
+// being written as an event - except with debug logging on, for troubleshooting.
 def markUpdated(child) {
-    long intervalMs = ((lastUpdateInterval ?: "15") as Integer) * 60000L
-    String dni = child.deviceNetworkId
-    Long last = lastUpdateSentAt[dni]
     long nowMs = now()
-    if (last != null && (nowMs - last) < intervalMs) {
-        return
+    lastReceivedAt[child.deviceNetworkId] = nowMs
+    if (debugLogging) {
+        child.sendEvent(name: "lastUpdate", value: new Date(nowMs).format("yyyy-MM-dd HH:mm:ss"))
     }
-    lastUpdateSentAt[dni] = nowMs
-    child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
 }
 
 def updateChildSetpoint(child, BigDecimal setpointC) {
