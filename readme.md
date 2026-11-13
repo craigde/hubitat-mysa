@@ -209,6 +209,11 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
 
+### 2.6.0 (driver 2.4.0)
+- Fixed: thermostatOperatingState only updated on the backup poll (every 15 minutes by default). Mysa devices only publish status reports while a client asks for them; the driver now requests them and renews the request every 4 minutes
+- V1 devices: operating state is derived from current draw in real-time status reports
+- Operating state switches to idle as soon as the mode changes to off
+
 ### 2.5.1 (driver 2.3.1)
 - Fixed: Commands (setpoint, mode) sent to devices other than the MQTT master were silently dropped; they are now routed through the master's connection
 
