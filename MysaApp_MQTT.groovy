@@ -1,6 +1,6 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.5.0
+ * Version: 2.6.0
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -15,6 +15,11 @@
  *  - Real-time MQTT updates via WebSocket
  *
  * Changelog:
+ *  v2.6.0 (2026-11-13)
+ *   - Operating state now updates in real time (driver requests status reports)
+ *   - V1 devices: operating state derived from current draw in status reports
+ *   - Operating state set to idle immediately when mode changes to off
+ *
  *  v2.5.0 (2026-10-28)
  *   - Added floorTemperature, trackedSensor and lineVoltage from INF-V1 status messages
  *   - dutyCycle now read from 'dutyCycle' (newer firmware) as well as 'dtyCycle'
@@ -67,7 +72,7 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.5.0"
+@Field static final String APP_VERSION = "2.6.0"
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((
@@ -833,6 +838,8 @@ def updateChildFromStream(child, Map payload) {
         def voltage = 240  // Most baseboard heaters are 240V
         def power = round(payload.Current * voltage, 0)
         child.sendEvent(name: "power", value: power, unit: "W")
+        // V1 devices report no duty cycle; current flowing means the heater is on
+        child.sendEvent(name: "thermostatOperatingState", value: (payload.Current > 0) ? "heating" : "idle")
     }
     
     logDebug "Updated ${child.label} from stream: temp=${tempC}, setpoint=${payload.SetPoint}, humidity=${payload.Humidity}"
@@ -915,6 +922,10 @@ def updateChildFromState(child, Map stateData) {
     if (stateData.md != null) {
         def mode = (stateData.md == 3) ? "heat" : "off"
         child.sendEvent(name: "thermostatMode", value: mode)
+        if (mode == "off") {
+            // No heat in off mode - don't wait for the next status report
+            child.sendEvent(name: "thermostatOperatingState", value: "idle")
+        }
     }
     
     logDebug "Updated ${child.label} from state: sp=${stateData.sp}, md=${stateData.md}"

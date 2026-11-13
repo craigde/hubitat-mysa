@@ -1,6 +1,6 @@
 /**
  * Mysa Thermostat MQTT Driver
- * Version: 2.3.1
+ * Version: 2.4.0
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -22,6 +22,11 @@
  *  - AC-V1-*   : Mysa for AC (body.type: 2)
  *
  * Changelog:
+ *  v2.4.0 (2026-11-13)
+ *   - Request real-time status reports from each device (renewed every 4 minutes).
+ *     Devices only publish duty cycle/temperature while asked, so operating state
+ *     previously only updated on the backup poll.
+ *
  *  v2.3.1 (2026-11-11)
  *   - Fixed: commands from non-master devices are now routed through the MQTT
  *     master (previously they hit a no-op REST fallback and were dropped)
@@ -63,7 +68,8 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-@Field static final String DRIVER_VERSION = "2.3.1"
+@Field static final String DRIVER_VERSION = "2.4.0"
+@Field static final int REALTIME_TIMEOUT_SECONDS = 300
 
 metadata {
     definition(name: "Mysa Thermostat MQTT", namespace: "craigde", author: "Craig Dewar") {
@@ -366,6 +372,31 @@ def sendMqttPublish(String topic, String payload, int qos = 0) {
     interfaces.webSocket.sendMessage(hexPacket)
 }
 
+def requestRealtimeUpdates() {
+    if (!isMqttMaster() || state.mqttConnected != true) {
+        return
+    }
+    
+    def deviceIds = (state.subscribeTopics ?: []).collect { topic ->
+        def m = (topic =~ /\/v1\/dev\/([^\/]+)\/out/)
+        m.find() ? m.group(1) : null
+    }.findAll { it }
+    
+    deviceIds.each { deviceId ->
+        // StartPublishingDeviceStatus (per bourquep's mysa-js-sdk): the device
+        // sends status reports for Timeout seconds, so this is renewed every
+        // 4 minutes with a 5 minute timeout.
+        def payload = JsonOutput.toJson([
+            Device: deviceId,
+            MsgType: 11,
+            Timestamp: (long)(now() / 1000),
+            Timeout: REALTIME_TIMEOUT_SECONDS
+        ])
+        logDebug "Requesting real-time status updates from ${deviceId}"
+        sendMqttPublish("/v1/dev/${deviceId}/in", payload, 1)
+    }
+}
+
 def sendMqttPingreq() {
     logDebug "Sending MQTT PINGREQ"
     // PINGREQ is just 0xC0 0x00
@@ -434,6 +465,12 @@ def handleConnack(byte[] data) {
             
             // Schedule periodic ping
             schedule("0 */1 * * * ?", "sendMqttPingreq")  // Every minute
+            
+            // Mysa devices only publish periodic status reports (temperature,
+            // humidity, duty cycle) after being asked to, and stop when the
+            // request times out. Ask now and renew before it expires.
+            runIn(2, "requestRealtimeUpdates")
+            schedule("30 */4 * * * ?", "requestRealtimeUpdates")  // Every 4 minutes
         } else {
             logWarn "MQTT connection refused, return code: ${returnCode}"
             state.mqttConnected = false
