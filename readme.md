@@ -105,7 +105,7 @@ The driver exposes standard Hubitat capabilities:
 | trackedSensor | Sensor the thermostat regulates on, as the raw number the device reports |
 | lineVoltage | Line voltage reported by the device |
 | mqttStatus | MQTT connection status |
-| lastUpdate | Timestamp of last update |
+| lastUpdate | Time data was last received. Only updated while debug logging is on; otherwise see the app's main page |
 
 ## How It Works
 
@@ -208,6 +208,9 @@ This integration is not affiliated with, endorsed by, or connected to Mysa Smart
 MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
+
+### 2.6.1
+- lastUpdate is no longer written as an event unless debug logging is on, since real-time status reports arrive every few seconds. The app's main page shows when each thermostat last sent data
 
 ### 2.6.0 (driver 2.4.0)
 - Fixed: thermostatOperatingState only updated on the backup poll (every 15 minutes by default). Mysa devices only publish status reports while a client asks for them; the driver now requests them and renews the request every 4 minutes

@@ -1,6 +1,6 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.6.0
+ * Version: 2.6.1
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -15,6 +15,10 @@
  *  - Real-time MQTT updates via WebSocket
  *
  * Changelog:
+ *  v2.6.1 (2026-11-13)
+ *   - lastUpdate is no longer written as an event (only with debug logging
+ *     on); the app page shows when each device last sent data instead
+ *
  *  v2.6.0 (2026-11-13)
  *   - Operating state now updates in real time (driver requests status reports)
  *   - V1 devices: operating state derived from current draw in status reports
@@ -72,7 +76,10 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.6.0"
+@Field static final String APP_VERSION = "2.6.1"
+// When each device last sent data. In memory only (not state or events) to
+// avoid a database write on every MQTT message.
+@Field static java.util.concurrent.ConcurrentHashMap lastReceivedAt = new java.util.concurrent.ConcurrentHashMap()
 
 // 3072-bit SRP group (RFC 3526 - group 15)
 @Field static final BigInteger SRP_N = new BigInteger((
@@ -138,6 +145,11 @@ def mainPage() {
                 paragraph "✓ Authenticated"
                 paragraph "Devices: ${getChildDevices()?.size() ?: 0}"
                 paragraph "Last poll: ${state.lastPoll ?: 'Never'}"
+                getChildDevices()?.sort { it.displayName }?.each { child ->
+                    Long t = lastReceivedAt[child.deviceNetworkId]
+                    def when = t ? new Date(t).format("yyyy-MM-dd HH:mm:ss", location.timeZone) : "Not since hub restart"
+                    paragraph "${child.displayName}: last data ${when}"
+                }
                 if (state.mqttConnected) {
                     paragraph "✓ MQTT Connected"
                 } else if (useMqtt) {
@@ -810,7 +822,7 @@ def updateChildFromStream(child, Map payload) {
     def format = child.getDataValue("format") ?: "celsius"
     def useFahrenheit = (format == "fahrenheit")
     
-    child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
+    markUpdated(child)
     
     // ComboTemp or MainTemp = actual temperature
     def tempC = payload.MainTemp ?: payload.ComboTemp
@@ -849,7 +861,7 @@ def updateChildFromBody(child, Map body) {
     def format = child.getDataValue("format") ?: "celsius"
     def useFahrenheit = (format == "fahrenheit")
     
-    child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
+    markUpdated(child)
     
     // ambTemp = ambient/actual temperature
     if (body.ambTemp != null) {
@@ -908,7 +920,7 @@ def updateChildFromState(child, Map stateData) {
     def format = child.getDataValue("format") ?: "celsius"
     def useFahrenheit = (format == "fahrenheit")
     
-    child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
+    markUpdated(child)
     
     // sp = setpoint
     if (stateData.sp != null) {
@@ -931,12 +943,23 @@ def updateChildFromState(child, Map stateData) {
     logDebug "Updated ${child.label} from state: sp=${stateData.sp}, md=${stateData.md}"
 }
 
+// Record when data was last received. Real-time status reports arrive every
+// few seconds, so this is kept in memory and shown on the app page instead of
+// being written as an event - except with debug logging on, for troubleshooting.
+def markUpdated(child) {
+    long nowMs = now()
+    lastReceivedAt[child.deviceNetworkId] = nowMs
+    if (debugLogging) {
+        child.sendEvent(name: "lastUpdate", value: new Date(nowMs).format("yyyy-MM-dd HH:mm:ss"))
+    }
+}
+
 def updateChildSetpoint(child, BigDecimal setpointC) {
     def format = child.getDataValue("format") ?: "celsius"
     def useFahrenheit = (format == "fahrenheit")
     def setpoint = useFahrenheit ? celsiusToFahrenheit(setpointC) : setpointC
     
-    child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
+    markUpdated(child)
     child.sendEvent(name: "heatingSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     child.sendEvent(name: "thermostatSetpoint", value: Math.round(setpoint), unit: useFahrenheit ? "°F" : "°C")
     
@@ -989,7 +1012,7 @@ def updateChildDevice(child, Map stateData) {
     def format = child.getDataValue("format") ?: "celsius"
     def useFahrenheit = (format == "fahrenheit")
     
-    child.sendEvent(name: "lastUpdate", value: new Date().format("yyyy-MM-dd HH:mm:ss"))
+    markUpdated(child)
     
     if (stateData.CorrectedTemp?.v != null) {
         def tempC = stateData.CorrectedTemp.v
