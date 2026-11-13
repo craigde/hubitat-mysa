@@ -26,6 +26,8 @@
  *   - Request real-time status reports from each device (renewed every 4 minutes).
  *     Devices only publish duty cycle/temperature while asked, so operating state
  *     previously only updated on the backup poll.
+ *   - Fixed: Initialize / Save Preferences while connected started a loop that
+ *     dropped and reopened the MQTT connection every 30 seconds
  *
  *  v2.3.1 (2026-11-11)
  *   - Fixed: commands from non-master devices are now routed through the MQTT
@@ -210,6 +212,11 @@ def webSocketStatus(String message) {
     
     if (message?.startsWith("status: open")) {
         logInfo "WebSocket connected!"
+        // Opening a new connection closes the previous one, and that close
+        // schedules a reconnect. Cancel it, or every reconnect would close
+        // this connection 30s later and schedule another (a loop that
+        // Initialize / Save Preferences would start).
+        unschedule("connectMqtt")
         sendEvent(name: "mqttStatus", value: "ws-connected")
         // Send MQTT CONNECT packet
         sendMqttConnect()
