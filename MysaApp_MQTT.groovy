@@ -1,6 +1,6 @@
 /**
  * Mysa Integration App with MQTT Support
- * Version: 2.6.0
+ * Version: 2.6.1
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -15,12 +15,14 @@
  *  - Real-time MQTT updates via WebSocket
  *
  * Changelog:
+ *  v2.6.1 (2026-11-13)
+ *   - lastUpdate is no longer written as an event (only with debug logging
+ *     on); the app page shows when each device last sent data instead
+ *
  *  v2.6.0 (2026-11-13)
  *   - Operating state now updates in real time (driver requests status reports)
  *   - V1 devices: operating state derived from current draw in status reports
  *   - Operating state set to idle immediately when mode changes to off
- *   - lastUpdate is no longer written as an event (only with debug logging
- *     on); the app page shows when each device last sent data instead
  *
  *  v2.5.0 (2026-10-28)
  *   - Added floorTemperature, trackedSensor and lineVoltage from INF-V1 status messages
@@ -74,7 +76,7 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigInteger
 import java.net.URLEncoder
 
-@Field static final String APP_VERSION = "2.6.0"
+@Field static final String APP_VERSION = "2.6.1"
 // When each device last sent data. In memory only (not state or events) to
 // avoid a database write on every MQTT message.
 @Field static java.util.concurrent.ConcurrentHashMap lastReceivedAt = new java.util.concurrent.ConcurrentHashMap()

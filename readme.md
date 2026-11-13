@@ -209,11 +209,13 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
 
+### 2.6.1
+- lastUpdate is no longer written as an event unless debug logging is on, since real-time status reports arrive every few seconds. The app's main page shows when each thermostat last sent data
+
 ### 2.6.0 (driver 2.4.0)
 - Fixed: thermostatOperatingState only updated on the backup poll (every 15 minutes by default). Mysa devices only publish status reports while a client asks for them; the driver now requests them and renews the request every 4 minutes
 - V1 devices: operating state is derived from current draw in real-time status reports
 - Operating state switches to idle as soon as the mode changes to off
-- lastUpdate is no longer written as an event unless debug logging is on, since real-time status reports arrive every few seconds. The app's main page shows when each thermostat last sent data
 - Fixed: Clicking Initialize or Save Preferences on the master while connected caused the MQTT connection to drop and reconnect every 30 seconds
 
 ### 2.5.1 (driver 2.3.1)
