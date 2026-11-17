@@ -78,7 +78,8 @@ A complete Hubitat Elevation integration for Mysa smart thermostats with real-ti
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Debug Logging | Enable detailed logging for troubleshooting | Off |
+| Debug Logging | Enable detailed logging for troubleshooting. Turns itself off after 30 minutes | Off |
+| Enable descriptionText logging | Info-level logs for connections and commands | On |
 
 ## Device Capabilities
 
@@ -208,6 +209,10 @@ This integration is not affiliated with, endorsed by, or connected to Mysa Smart
 MIT License - See [LICENSE](LICENSE) for details.
 
 ## Version History
+
+### 2.6.2 (driver 2.4.1)
+- Quieter logging: MQTT message receipts moved to debug; added descriptionText logging toggle.
+- Debug logging on the thermostat driver turns itself off after 30 minutes
 
 ### 2.6.1
 - lastUpdate is no longer written as an event unless debug logging is on, since real-time status reports arrive every few seconds. The app's main page shows when each thermostat last sent data
