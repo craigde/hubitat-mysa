@@ -1,6 +1,6 @@
 /**
  * Mysa Thermostat MQTT Driver
- * Version: 2.4.0
+ * Version: 2.4.1
  * Author: Craig Dewar
  * Repository: https://github.com/craigdewar/hubitat-mysa
  *
@@ -22,6 +22,10 @@
  *  - AC-V1-*   : Mysa for AC (body.type: 2)
  *
  * Changelog:
+ *  v2.4.1 (2026-11-17)
+ *   - Quieter logging: MQTT message receipts moved to debug; added descriptionText logging toggle.
+ *   - Debug logging turns itself off after 30 minutes
+ *
  *  v2.4.0 (2026-11-13)
  *   - Request real-time status reports from each device (renewed every 4 minutes).
  *     Devices only publish duty cycle/temperature while asked, so operating state
@@ -70,7 +74,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-@Field static final String DRIVER_VERSION = "2.4.0"
+@Field static final String DRIVER_VERSION = "2.4.1"
 @Field static final int REALTIME_TIMEOUT_SECONDS = 300
 
 metadata {
@@ -103,7 +107,8 @@ metadata {
     }
 
     preferences {
-        input name: "debugLogging", type: "bool", title: "Enable Debug Logging", defaultValue: false
+        input name: "debugLogging", type: "bool", title: "Enable Debug Logging", description: "Turns itself off after 30 minutes", defaultValue: false
+        input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
     }
 }
 
@@ -117,7 +122,16 @@ def installed() {
 
 def updated() {
     logDebug "Updated"
+    unschedule("logsOff")
+    if (debugLogging) {
+        runIn(1800, "logsOff")
+    }
     initialize()
+}
+
+def logsOff() {
+    log.warn "[MysaThermostat] Debug logging disabled"
+    device.updateSetting("debugLogging", [value: "false", type: "bool"])
 }
 
 def initialize() {
@@ -435,7 +449,7 @@ def parseMqttPacket(byte[] data) {
     
     switch (packetType) {
         case 2:  // CONNACK
-            logInfo "Received MQTT CONNACK"
+            logDebug "Received MQTT CONNACK"
             handleConnack(data)
             break
         case 3:  // PUBLISH
@@ -531,7 +545,7 @@ def handlePublish(byte[] data) {
             payload = new String(data, offset, payloadLength, "UTF-8")
         }
         
-        logInfo "MQTT PUBLISH received: topic=${topic}"
+        logDebug "MQTT PUBLISH received: topic=${topic}"
         logDebug "MQTT PUBLISH payload: ${payload?.take(300)}"
         
         // Parse JSON payload and forward to parent with topic
@@ -580,7 +594,7 @@ def setHeatingSetpoint(temperature) {
         return
     }
     
-    logInfo "Sending setpoint via MQTT"
+    logDebug "Sending setpoint via MQTT"
     def command = buildMysaCommand("sp", temperature)
     publishMqttCommand(deviceId, command)
 }
@@ -781,5 +795,5 @@ def publishMqttCommand(String deviceId, Map command) {
  * ========================= */
 
 private void logDebug(msg) { if (debugLogging) log.debug "[MysaThermostat] ${msg}" }
-private void logInfo(msg) { log.info "[MysaThermostat] ${msg}" }
+private void logInfo(msg) { if (txtEnable != false) log.info "[MysaThermostat] ${msg}" }
 private void logWarn(msg) { log.warn "[MysaThermostat] ${msg}" }
